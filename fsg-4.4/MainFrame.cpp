@@ -194,7 +194,7 @@ MainFrame::MainFrame(const wxString& title, const wxPoint& pos,
       RHSizer->Add(RH4, 0, wxEXPAND | wxALL, 5);
     }
 
-    sizer->Add(g_canvas, 0, wxADJUST_MINSIZE | wxALL, 10);
+    sizer->Add(g_canvas, 0, wxALL, 10);
     sizer->Add(RHSizer, 1, wxEXPAND);
   }
   this->SetSizer(sizer);
