@@ -9,6 +9,7 @@ class Canvas : public wxWindow {
  public:
   Canvas(wxWindow* parent, wxWindowID id, wxPoint, wxSize);
 
+  void OnPaint(wxPaintEvent& event);
   void OnEraseBG(wxEraseEvent& e);
   void OnMouseRightDown(wxMouseEvent& event);
   void OnMouseLeftDown(wxMouseEvent& event);
@@ -24,6 +25,7 @@ class Canvas : public wxWindow {
   void calculate();
 
  private:
+  void EnsureBitmapUpToDate();
   DECLARE_EVENT_TABLE()
 };
 

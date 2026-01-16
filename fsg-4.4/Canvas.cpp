@@ -1,8 +1,10 @@
 #include "Canvas.h"
 #include <math.h>
+#include <wx/dcbuffer.h>
 #include <wx/image.h>
 
 BEGIN_EVENT_TABLE(Canvas, wxWindow)
+EVT_PAINT(Canvas::OnPaint)
 EVT_ERASE_BACKGROUND(Canvas::OnEraseBG)
 EVT_RIGHT_DOWN(Canvas::OnMouseRightDown)
 EVT_LEFT_DOWN(Canvas::OnMouseLeftDown)
@@ -20,6 +22,7 @@ Canvas::Canvas(wxWindow* parent, wxWindowID id = -1,
 
   // this->SetExtraStyle(wxWS_EX_PROCESS_IDLE);
   this->SetSizeHints(g_width, g_height, g_width, g_height);
+  this->SetBackgroundStyle(wxBG_STYLE_PAINT);
   this->SetBackgroundColour(wxColor(_("BLACK")));
   sand_type = 1;
   pen_width = 4;
@@ -32,6 +35,37 @@ Canvas::Canvas(wxWindow* parent, wxWindowID id = -1,
   memset(calc, false, g_width * g_height * sizeof(unsigned char));
   memset(xspeed, 0, g_width * g_height * sizeof(char));
   memset(yspeed, 0, g_width * g_height * sizeof(char));
+}
+
+void Canvas::EnsureBitmapUpToDate() {
+  if (!drawAll) return;
+
+  // Build the initial framebuffer from the current sandbox state.
+  for (int center = 0; center < g_width * g_height; ++center) {
+    bitmapdata[(center * 3) + 0] = colors[data[center]][energy[center]].Red();
+    bitmapdata[(center * 3) + 1] =
+        colors[data[center]][energy[center]].Green();
+    bitmapdata[(center * 3) + 2] = colors[data[center]][energy[center]].Blue();
+  }
+  drawAll = false;
+}
+
+void Canvas::OnPaint(wxPaintEvent& event) {
+  // Required on some platforms; also lets wx manage expose/redraw properly.
+  wxAutoBufferedPaintDC dc(this);
+  dc.SetBackground(wxBrush(GetBackgroundColour()));
+  dc.Clear();
+
+  if (!doDraw) return;
+
+  EnsureBitmapUpToDate();
+
+  wxMemoryDC memdc;
+  wxImage image(g_width, g_height, bitmapdata, true /* static_data */);
+  wxBitmap bmp(image);
+  memdc.SelectObject(bmp);
+
+  dc.Blit(0, 0, g_width, g_height, &memdc, 0, 0);
 }
 
 inline void drawData(int center) {
@@ -835,40 +869,10 @@ void Canvas::Refresh(bool eraseBackground, const wxRect *rect) {
              int(energy[(g_width * mousey) + mousex]));
   statusbar->SetStatusText(str, 2);
 
-  if (doDraw) {
-    wxClientDC dc(this);
+  if (!doDraw) return;
 
-    // Note: BeginDrawing and EndDrawing were deprecated in 2006 and removed
-    // from recent wxWidgets libraries, so I just commented them out. It seems
-    // to work fine without them.
-    // ftp://ftp.wxwidgets.org/pub/2.8.12/changes-2.8.12.txt
-    // - wxDC::BeginDrawing() and wxDC::EndDrawing() deprecated, don't use them.
-    // dc.BeginDrawing();
-
-    wxMemoryDC memdc;
-    wxImage image(g_width, g_height, bitmapdata, true);
-    wxBitmap bmp(image);
-    memdc.SelectObject(bmp);
-
-    dc.Blit(0, 0, g_width, g_height, &memdc, 0, 0);
-
-    if (!drawAll) {
-      // dc.EndDrawing();
-      return;
-    } else {
-      for (int center = 0; center < g_width * g_height; ++center) {
-        bitmapdata[(center * 3) + 0] =
-            colors[data[center]][energy[center]].Red();
-        bitmapdata[(center * 3) + 1] =
-            colors[data[center]][energy[center]].Green();
-        bitmapdata[(center * 3) + 2] =
-            colors[data[center]][energy[center]].Blue();
-      }
-      drawAll = false;
-    }
-
-    // dc.EndDrawing();
-  }
+  // Don’t draw directly here; just request a proper paint.
+  wxWindow::Refresh(eraseBackground, rect);
 }
 
 void Canvas::OnTimer(wxTimerEvent& event) {
